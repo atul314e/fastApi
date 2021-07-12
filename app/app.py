@@ -3,8 +3,26 @@ import json
 import re
 from .heathcareDataModel import dataModel
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 
 app=FastAPI() # creating fastapi object
+
+origins = [
+    "http://127.0.0.1:5500",
+    "localhost:5500"
+]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+
+
 healthcareDictList=[] # healthcareDictList will cotain records of all providers
 
 # filling healthcareDictList using data.json file
@@ -37,21 +55,21 @@ def getprovider(providerID) -> dict:
 @app.post("/healthcare")
 async def addProvider(data:dataModel, background_task:BackgroundTasks) -> dict:
     error=""
-    pattern=re.compile(r"[0-9]*")
+    pattern=re.compile(r"[0-9]{10}")
     data_dict=data.dict()
     if len(data_dict["phone"]) == 10:
         isPhoneNo=pattern.match(data_dict["phone"])
         if not isPhoneNo:
             error+="phone number should be 10 digit number"
-            raise HTTPException(status_code=400, detail=error) # bad request
+            return {"message":error}# bad request
     else:
         error+="phone number should be 10 digit number"
-        raise HTTPException(status_code=400, detail=error) # bad request
+        return {"message":error} # bad request
     id=str(uuid.uuid4())
     data_dict["providerID"]=id
     healthcareDictList.append(data_dict)
     background_task.add_task(writeinfile) # runs the write opeartio on data.json in background asynchronously
-    return {"meassage": "data has been added"}
+    return {"message": "data has been added"}
     
 @app.put("/healthcare/{providerID}")
 async def updateProvider(providerID:str, DATA:dict, background_task:BackgroundTasks) -> dict:
@@ -65,15 +83,15 @@ async def updateProvider(providerID:str, DATA:dict, background_task:BackgroundTa
                         isPhoneNo=pattern.match(DATA["phone"])
                         if not isPhoneNo:
                             error+="phone number should be 10 digit number"
-                            raise HTTPException(status_code=400, detail=error) # bad request
+                            return {"message":error} # bad request
                     else:
                         error+="phone number should be 10 digit number"
-                        raise HTTPException(status_code=400, detail=error)
+                        return {"message":error}
                 data[key]=DATA[key]  
             background_task.add_task(writeinfile)# runs the write opeartio on data.json in background asynchronously
-            return {"meassage": f"data of provider {providerID} has been updated"}
+            return {"message": f"data of provider {providerID} has been updated"}
     
-    raise HTTPException(status_code=404, detail="Item not found")
+    return {"message":"Item not Found"}
     
        
 @app.delete("/healthcare/{providerID}")
@@ -82,7 +100,7 @@ async def deleteProvider(providerID:str, background_task:BackgroundTasks) -> dic
         if data["providerID"]==providerID:
             healthcareDictList.remove(data)
             background_task.add_task(writeinfile)# runs the write opeartio on data.json in background asynchronously
-            return {"meassage": f"data of provider {providerID} has been deleted"}
+            return {"message": f"data of provider {providerID} has been deleted"}
     raise HTTPException(status_code=404, detail="Item not found")
 
 @app.delete("/healthcare")
@@ -90,4 +108,4 @@ async def deleteAllProvider(background_task:BackgroundTasks) -> dict:
     for data in healthcareDictList:
         healthcareDictList.remove(data)
     background_task.add_task(writeinfile)# runs the write opeartio on data.json in background asynchronously
-    return {"meassage": "data of all provider has been deleted"}
+    return {"message": "data of all provider has been deleted"}
