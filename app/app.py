@@ -1,9 +1,13 @@
 import uuid, os
+import shutil
 import json
 import re
 from .heathcareDataModel import dataModel
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+
+imageFolder='/home/user1/PythonPrac/fastapi/pythonFlaskApi/img/'
 
 app=FastAPI() # creating fastapi object
 
@@ -41,6 +45,13 @@ def writeinfile():
 def welcome() -> dict:
     return {"message": "Welcome to Healthcare provider system."}
 
+@app.get("/image/{providerID}")
+def getImage(providerID):
+    for data in healthcareDictList:
+        if data["providerID"]==providerID:
+            fullPath=os.path.join(imageFolder, data["image"])
+            return FileResponse(fullPath)
+
 @app.get("/healthcareDict")
 def getAllProviders() -> dict:
     return {"providers": healthcareDictList}
@@ -70,7 +81,14 @@ async def addProvider(data:dataModel, background_task:BackgroundTasks) -> dict:
     healthcareDictList.append(data_dict)
     background_task.add_task(writeinfile) # runs the write opeartio on data.json in background asynchronously
     return {"message": "data has been added"}
-    
+
+@app.post("/uploadimage")
+async def create_upload_file(file: UploadFile = File(...)):
+    fullPath=os.path.join(imageFolder, file.filename)
+    with open(f'{fullPath}', 'wb') as FILE:
+        shutil.copyfileobj(file.file, FILE)
+    return {"filename": file.filename}
+
 @app.put("/healthcare/{providerID}")
 async def updateProvider(providerID:str, DATA:dict, background_task:BackgroundTasks) -> dict:
     for data in healthcareDictList:
@@ -109,3 +127,4 @@ async def deleteAllProvider(background_task:BackgroundTasks) -> dict:
         healthcareDictList.remove(data)
     background_task.add_task(writeinfile)# runs the write opeartio on data.json in background asynchronously
     return {"message": "data of all provider has been deleted"}
+

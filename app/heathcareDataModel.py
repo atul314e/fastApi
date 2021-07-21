@@ -9,4 +9,6 @@ class dataModel(BaseModel):
     department:str="Not Applicable"
     organization:str
     location:str=""
+    description:str=""
+    image:str
     address:str
